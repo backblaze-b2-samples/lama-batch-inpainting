@@ -13,6 +13,7 @@ from app.config import settings
 from app.repo import (
     delete_file,
     get_file_metadata,
+    get_inline_url,
     get_presigned_url,
     get_upload_stats,
     list_files,
@@ -24,6 +25,19 @@ logger = logging.getLogger(__name__)
 
 _DANGEROUS_KEY_RE = re.compile(r"(\.\./|/\.\.|\\|%2e%2e|%00|\x00)")
 _download_lock = Lock()
+
+# Object-key prefixes this app is allowed to write to / render inline. The
+# full-bucket explorer (/files) can still LIST everything; this allowlist gates
+# the app's own asset URLs and inpainting writes so a crafted key can't point
+# the pipeline at an arbitrary object.
+ALLOWED_PREFIXES = (
+    "images/source/",
+    "images/masks/",
+    "images/output/",
+    "images/approved/",
+    "images/jobs/",
+    "uploads/",
+)
 
 
 def _counter_path() -> Path:
@@ -103,6 +117,22 @@ def validate_key(key: str) -> None:
         raise FileKeyError()
     if _DANGEROUS_KEY_RE.search(key.lower()):
         raise FileKeyError()
+
+
+def validate_prefix(key: str) -> None:
+    """Reject keys that fall outside this app's allowed prefixes."""
+    validate_key(key)
+    if not key.startswith(ALLOWED_PREFIXES):
+        raise FileKeyError("Key is outside this app's allowed prefixes")
+
+
+def get_asset_url(key: str) -> str:
+    """Inline presigned URL for an app-owned asset (source/mask/output/approved).
+
+    Used by the review UI so images actually paint in the browser.
+    """
+    validate_prefix(key)
+    return get_inline_url(key)
 
 
 def get_files(prefix: str = "", limit: int = 100) -> list[FileMetadata]:

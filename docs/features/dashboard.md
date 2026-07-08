@@ -1,57 +1,51 @@
-<!-- last_verified: 2026-06-25 -->
-# Feature: Dashboard
+<!-- last_verified: 2026-07-08 -->
+# Feature: Dashboard (storage amplification)
 
 ## Purpose
-Provide an at-a-glance overview of file storage usage and recent upload activity.
+Tell the storage-amplification (~3×) story at a glance: how much a remediation
+project stores relative to its input, plus recent job activity.
 
 ## Used By
 - UI: `/` page (dashboard home)
-- API: `GET /files/stats`, `GET /files`, `GET /files/stats/activity`
+- API: `GET /jobs/stats`, `GET /jobs`
 
 ## Core Functions
-- `apps/web/src/components/dashboard/stats-cards.tsx` — 4 stat cards
-- `apps/web/src/components/dashboard/recent-uploads-table.tsx` — last 10 uploads
-- `apps/web/src/components/dashboard/upload-chart.tsx` — bar chart of uploads per day
-- `apps/web/src/lib/api-client.ts` — `getFileStats()`, `getFiles()`, `getUploadActivity()`
-- `services/api/app/runtime/files.py` — `GET /files/stats` handler
-- `services/api/app/service/files.py` — `get_stats()` business logic
-- `services/api/app/repo/b2_client.py` — `get_upload_stats()` data access
-
-## Canonical Files
-- Dashboard page layout: `apps/web/src/components/dashboard/stats-cards.tsx`
-- Stats service logic: `services/api/app/service/files.py`
+- `apps/web/src/components/dashboard/inpainting-stats-cards.tsx` — total jobs,
+  images inpainted, approved count, amplification ratio
+- `apps/web/src/components/dashboard/prefix-bytes-chart.tsx` — bytes by prefix
+  (source / masks / output / approved) as proportional bars
+- `apps/web/src/components/dashboard/recent-jobs-table.tsx` — most recent jobs
+- `apps/web/src/lib/queries.ts` — `useInpaintingStats()`, `useJobs()`
+- `services/api/app/service/jobs.py::get_inpainting_stats` — aggregates
+  bytes-by-prefix and the amplification ratio from a single paginated list
 
 ## Inputs
-- None (dashboard loads data automatically)
+- None (loads automatically).
 
 ## Outputs
-- `GET /files/stats` → `UploadStats` (total_files, total_size_bytes, total_size_human, uploads_today, total_downloads)
-- `GET /files` (limit 10) → `FileMetadata[]` for recent uploads table (sorted newest-first)
-- `GET /files/stats/activity?days=7` → `DailyUploadCount[]` for chart (server-side aggregation)
+- `GET /jobs/stats` → `InpaintingStats` (total_jobs, completed_jobs,
+  images_inpainted, approved_count, source/mask/output/approved bytes,
+  amplification_ratio, by_prefix[])
+- `GET /jobs` → `Job[]` for the recent-jobs table
 
-## Flow
-- Page loads → three parallel API calls (stats, recent files, upload activity)
-- Stats cards display total files, storage used, uploads today, total downloads
-- Upload chart displays server-aggregated daily counts for last 7 days as bar chart after activity data is known
-- Recent uploads table shows last 10 files with filename, size, type, date, status badge
+## Amplification ratio
+`(output_bytes + mask_bytes) / source_bytes` — how much the project has grown
+beyond its source inputs. `0` when there are no sources yet.
 
 ## Edge Cases
-- API unavailable → error states with retry where supported; activity chart does not show a false zero state while loading
-- No files uploaded → empty chart message, empty table message
-- Large file count → stats endpoint paginates through all objects using `ContinuationToken`
+- API unavailable → inline error states with retry.
+- No data yet → empty states on cards, chart, and table.
+- Large bucket → stats paginate through all objects (`ContinuationToken`).
 
 ## UX States
-- Loading: skeleton placeholders for cards, table, and upload activity chart
-- Empty: "No files uploaded yet" / "No upload data available yet"
-- Loaded: populated cards, chart, table
+- Loading: skeletons for cards, chart, table
+- Empty: "No storage yet" / "No jobs yet"
+- Loaded: populated metrics
 
 ## Verification
-- Test files: `services/api/tests/test_upload_activity.py`, `services/api/tests/test_recent_files.py`
-- Required cases: stats with files, stats with empty bucket, API error fallback
-- Quick verify command: `pnpm test:api`
-- Full verify command: `pnpm lint && pnpm lint:api && pnpm test:api && pnpm check:structure`
-- Pass criteria: all pytest tests green, no ruff violations
+- Test file: `services/api/tests/test_jobs.py`
+- Quick verify: `pnpm test:api`
 
 ## Related Docs
+- [Jobs](jobs.md)
 - [ARCHITECTURE.md](../../ARCHITECTURE.md)
-- [App Workflows](../app-workflows.md)

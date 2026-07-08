@@ -11,7 +11,6 @@ ALLOWED_TYPES = {
     "image/png",
     "image/gif",
     "image/webp",
-    "application/pdf",
     "text/plain",
     "text/csv",
     "application/json",
@@ -27,7 +26,6 @@ MIME_EXTENSION_MAP: dict[str, set[str]] = {
     "image/png": {"png"},
     "image/gif": {"gif"},
     "image/webp": {"webp"},
-    "application/pdf": {"pdf"},
     "text/plain": {"txt", "text", "log", "md"},
     "text/csv": {"csv"},
     "application/json": {"json"},
@@ -37,6 +35,15 @@ MIME_EXTENSION_MAP: dict[str, set[str]] = {
     "audio/wav": {"wav"},
     "image/svg+xml": {"svg"},
 }
+
+# Upload destinations (finite set -> selector in the UI, never free text). Each
+# maps to the B2 prefix the object lands under. Replaces the starter's single
+# hardcoded `uploads/` prefix.
+DESTINATIONS: dict[str, str] = {
+    "source": "images/source/",
+    "mask": "images/masks/",
+}
+DEFAULT_DESTINATION = "source"
 
 _SAFE_FILENAME_RE = re.compile(r"[^\w\-.]")
 
@@ -79,10 +86,17 @@ def process_upload(
     filename: str,
     content_type: str,
     content_length: int | None = None,
+    destination: str = DEFAULT_DESTINATION,
 ) -> FileUploadResponse:
     """Validate and process a file upload. Raises UploadError on failure."""
     if not filename:
         raise UploadError("No filename provided")
+
+    if destination not in DESTINATIONS:
+        raise UploadError(
+            f"Invalid destination '{destination}'. "
+            f"Expected one of: {', '.join(sorted(DESTINATIONS))}"
+        )
 
     if content_length and content_length > settings.max_file_size:
         raise UploadError(
@@ -114,7 +128,7 @@ def process_upload(
 
     # B2 buckets are always versioned — uploading the same key creates a new
     # version automatically.  No duplicate rejection needed.
-    key = f"uploads/{safe_name}"
+    key = f"{DESTINATIONS[destination]}{safe_name}"
     result = upload_file(file_data, key, content_type)
     metadata = extract_metadata(file_data, safe_name, content_type)
 

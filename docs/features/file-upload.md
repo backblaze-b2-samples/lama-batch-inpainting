@@ -2,7 +2,9 @@
 # Feature: File Upload
 
 ## Purpose
-Upload files from the browser to Backblaze B2 with real-time progress tracking.
+Upload source images and their masks from the browser to Backblaze B2 with
+real-time progress tracking. A destination selector routes each file to the
+right prefix.
 
 ## Used By
 - UI: `/upload` page, upload form component
@@ -26,10 +28,13 @@ Upload files from the browser to Backblaze B2 with real-time progress tracking.
 ## Inputs
 - file: `File` (from browser, multipart form data)
 - content_type: string (from file MIME type)
+- destination: `"source" | "mask"` (multipart form field) — a finite set, so the
+  UI uses a `RadioGroup` selector (never free text). Maps to a B2 prefix.
 
 ## Outputs
 - `FileUploadResponse`: key, filename, size, content_type, uploaded_at, url, metadata
-- Side effects: file stored in B2 bucket under `uploads/{sanitized_filename}`
+- Side effects: file stored under `images/source/{name}` or `images/masks/{name}`
+  depending on the destination (replaces the starter's single `uploads/` prefix)
 
 ## Flow
 - User drops or selects files in dropzone
@@ -41,9 +46,10 @@ Upload files from the browser to Backblaze B2 with real-time progress tracking.
 - API validates file extension matches declared MIME type
 - API reads file in 1MB chunks with streaming size enforcement (max 100MB)
 - API rejects empty files
-- API uses key: `uploads/{sanitized_filename}`
+- API validates `destination` and builds the key: `images/source/{name}` or
+  `images/masks/{name}`
 - API calls `put_object` to B2
-- API extracts file metadata (checksums, image dimensions, PDF info)
+- API extracts image metadata (checksums, image dimensions, EXIF)
 - API returns `FileUploadResponse`
 - Client shows toast, updates progress state, and refreshes shared data after successful uploads
 
@@ -74,5 +80,6 @@ Upload files from the browser to Backblaze B2 with real-time progress tracking.
 
 ## Related Docs
 - [ARCHITECTURE.md](../../ARCHITECTURE.md)
-- [Metadata Extraction](metadata-extraction.md)
+- [Library](library.md)
+- [Jobs](jobs.md)
 - [App Workflows](../app-workflows.md)

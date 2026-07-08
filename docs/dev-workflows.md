@@ -60,11 +60,27 @@ Engineering workflows for this repo.
 - Frontend lint: `pnpm lint`
 - Backend lint: `pnpm lint:api`
 - Full suite: `pnpm typecheck && pnpm lint && pnpm lint:api && pnpm test:api && pnpm check:structure`
-- E2E: `pnpm test:e2e` (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first)
+- E2E: `pnpm test:e2e` (run `pnpm --filter @lama-batch-inpainting/web exec playwright install chromium` once first)
 
 ### When to run
 - After behavior change: run relevant subset
 - Before PR: run full suite
+
+## ML / inpainting engine
+
+- The LaMa engine lives in `services/api/app/repo/lama_engine.py`. `torch` and
+  `simple_lama_inpainting` are imported **inside functions**, never at module
+  scope — so `from main import app`, `pnpm test:api`, and lint stay fast and
+  offline (no model download at import/collection time).
+- Install ML deps with `pip install -r requirements.txt` (pulls torch,
+  torchvision, opencv-python-headless, simple-lama-inpainting). The first real
+  inpaint downloads `big-lama.pt` (~200 MB) into the Torch hub cache; set
+  `LAMA_MODEL` to a local checkpoint to run offline.
+- Device is auto-detected (CUDA → MPS → CPU) with a transparent CPU fallback.
+  Never hard-require a GPU.
+- Tests must not run real inference: `tests/test_lama_engine.py` is a no-network
+  signature guard using a fake engine. Smoke-check the import during setup with
+  `python -c "from simple_lama_inpainting import SimpleLama"`.
 
 ## Frontend Conventions
 

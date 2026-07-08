@@ -26,11 +26,20 @@ import { APP_NAME } from "@/lib/app-config";
 // (e.g. "/" -> "Dashboard", "/design" -> "Design System").
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
+  "/jobs": "Jobs",
+  "/jobs/new": "New Job",
+  "/library": "Library",
   "/upload": "Upload",
   "/files": "Files",
   "/settings": "Settings",
   "/design": "Design System",
 };
+
+// Titles for dynamic routes not covered by the exact-match map above.
+function dynamicTitle(pathname: string): string | null {
+  if (pathname.startsWith("/jobs/") && pathname !== "/jobs/new") return "Job";
+  return null;
+}
 
 // Fallback page label for routes not in the override map: title-case the last
 // non-empty path segment, splitting hyphens (e.g. "/file-browser" -> "File Browser").
@@ -46,7 +55,8 @@ function deriveTitleFromPath(pathname: string): string {
 export function Header() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
-  const pageTitle = pageTitles[pathname] ?? deriveTitleFromPath(pathname);
+  const pageTitle =
+    pageTitles[pathname] ?? dynamicTitle(pathname) ?? deriveTitleFromPath(pathname);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
 

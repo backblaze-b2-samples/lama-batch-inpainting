@@ -1,10 +1,10 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Form, HTTPException, Request, UploadFile
 
 from app.config import settings
 from app.runtime.metrics import record_upload
-from app.service.upload import UploadError, process_upload
+from app.service.upload import DEFAULT_DESTINATION, UploadError, process_upload
 from app.types import FileUploadResponse
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,11 @@ router = APIRouter()
 
 
 @router.post("/upload", response_model=FileUploadResponse)
-async def upload(request: Request, file: UploadFile):
+async def upload(
+    request: Request,
+    file: UploadFile,
+    destination: str = Form(default=DEFAULT_DESTINATION),
+):
     content_type = file.content_type or "application/octet-stream"
     content_length_header = request.headers.get("content-length")
     content_length = int(content_length_header) if content_length_header else None
@@ -37,6 +41,7 @@ async def upload(request: Request, file: UploadFile):
             filename=file.filename or "",
             content_type=content_type,
             content_length=content_length,
+            destination=destination,
         )
     except UploadError as e:
         logger.warning("Upload rejected: %s", e.detail)

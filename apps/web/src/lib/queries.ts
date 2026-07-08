@@ -3,13 +3,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
+  approveJob,
+  createJob,
   deleteFile,
+  deleteJob,
+  getAssetUrl,
   getFiles,
   getFileStats,
+  getInpaintingStats,
+  getJob,
+  getJobs,
+  getLibrary,
   getPreviewUrl,
   getUploadActivity,
+  runJob,
 } from "@/lib/api-client";
-import type { FileMetadata } from "@vibe-coding-starter-kit/shared";
+import type {
+  FileMetadata,
+  InpaintingStats,
+  Job,
+  JobCreateRequest,
+  LibraryItem,
+} from "@lama-batch-inpainting/shared";
 
 // Single source of truth for query keys. Keep these tightly scoped so that
 // invalidating "files" doesn't blow away unrelated caches, and so an IDE
@@ -22,6 +37,12 @@ export const qk = {
   uploadActivity: (days: number) =>
     [...qk.all, "stats", "activity", days] as const,
   preview: (key: string) => [...qk.all, "preview", key] as const,
+  // Inpainting
+  library: () => [...qk.all, "library"] as const,
+  jobs: () => [...qk.all, "jobs"] as const,
+  job: (id: string) => [...qk.all, "jobs", id] as const,
+  inpaintingStats: () => [...qk.all, "inpainting-stats"] as const,
+  asset: (key: string) => [...qk.all, "asset", key] as const,
 };
 
 export function useFiles(prefix = "", limit = 100) {
@@ -65,6 +86,92 @@ export function useDeleteFile() {
     // correct — the dashboard re-fetches lazily as components remount.
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.all });
+    },
+  });
+}
+
+// --- Inpainting ---
+
+export function useLibrary() {
+  return useQuery<LibraryItem[], ApiError>({
+    queryKey: qk.library(),
+    queryFn: getLibrary,
+  });
+}
+
+export function useJobs() {
+  return useQuery<Job[], ApiError>({
+    queryKey: qk.jobs(),
+    queryFn: getJobs,
+  });
+}
+
+export function useJob(id: string | undefined) {
+  return useQuery<Job, ApiError>({
+    queryKey: qk.job(id ?? ""),
+    queryFn: () => getJob(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useInpaintingStats() {
+  return useQuery<InpaintingStats, ApiError>({
+    queryKey: qk.inpaintingStats(),
+    queryFn: getInpaintingStats,
+  });
+}
+
+// Inline presigned URL for rendering an asset in the review UI.
+export function useAssetUrl(key: string | undefined) {
+  return useQuery({
+    queryKey: qk.asset(key ?? ""),
+    queryFn: () => getAssetUrl(key as string),
+    enabled: !!key,
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: JobCreateRequest) => createJob(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.jobs() });
+      qc.invalidateQueries({ queryKey: qk.inpaintingStats() });
+    },
+  });
+}
+
+export function useRunJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => runJob(id),
+    onSuccess: (job) => {
+      qc.invalidateQueries({ queryKey: qk.job(job.id) });
+      qc.invalidateQueries({ queryKey: qk.jobs() });
+      qc.invalidateQueries({ queryKey: qk.inpaintingStats() });
+    },
+  });
+}
+
+export function useApproveJob(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (outputKeys?: string[]) => approveJob(id, outputKeys),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.job(id) });
+      qc.invalidateQueries({ queryKey: qk.inpaintingStats() });
+    },
+  });
+}
+
+export function useDeleteJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteJob(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.jobs() });
+      qc.invalidateQueries({ queryKey: qk.inpaintingStats() });
     },
   });
 }

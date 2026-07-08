@@ -1,17 +1,14 @@
 "use client";
 
-import { FileIcon, HardDrive, Upload, Download } from "lucide-react";
+import { Wand2, Images, CheckCircle2, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
-import { useFileStats } from "@/lib/queries";
+import { useInpaintingStats } from "@/lib/queries";
 
-export function StatsCards() {
-  const { data: stats, isLoading, error, refetch } = useFileStats();
+export function InpaintingStatsCards() {
+  const { data: stats, isLoading, error, refetch } = useInpaintingStats();
 
-  // Surface fetch failures inline rather than rendering "0 files / 0 B" —
-  // that lies to the user about the bucket state when really the API is
-  // just unreachable.
   if (error) {
     return (
       <Card>
@@ -23,10 +20,18 @@ export function StatsCards() {
   }
 
   const cards = [
-    { title: "Total Files", value: stats?.total_files ?? 0, icon: FileIcon },
-    { title: "Storage Used", value: stats?.total_size_human ?? "0 B", icon: HardDrive },
-    { title: "Uploads Today", value: stats?.uploads_today ?? 0, icon: Upload },
-    { title: "Total Downloads", value: stats?.total_downloads ?? 0, icon: Download },
+    { title: "Total Jobs", value: stats?.total_jobs ?? 0, icon: Wand2 },
+    {
+      title: "Images Inpainted",
+      value: stats?.images_inpainted ?? 0,
+      icon: Images,
+    },
+    { title: "Approved", value: stats?.approved_count ?? 0, icon: CheckCircle2 },
+    {
+      title: "Storage Amplification",
+      value: stats ? `${stats.amplification_ratio.toFixed(2)}×` : "—",
+      icon: Layers,
+    },
   ];
 
   return (

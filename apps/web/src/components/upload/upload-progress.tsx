@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { humanizeBytes } from "@/lib/utils";
-import type { FileStatus } from "@vibe-coding-starter-kit/shared";
+import type { FileStatus } from "@lama-batch-inpainting/shared";
+import type { UploadDestination } from "@/lib/api-client";
 
 export interface UploadItem {
   id: string;
@@ -19,7 +20,13 @@ export interface UploadItem {
   status: FileStatus;
   error?: string;
   retryable?: boolean;
+  destination?: UploadDestination;
 }
+
+const DESTINATION_LABEL: Record<UploadDestination, string> = {
+  source: "Source",
+  mask: "Mask",
+};
 
 interface UploadProgressProps {
   disabled?: boolean;
@@ -99,6 +106,11 @@ export function UploadProgress({
                 )}
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {item.destination && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {DESTINATION_LABEL[item.destination]}
+                  </span>
+                )}
                 <span className="font-mono text-xs text-muted-foreground tabular-nums">
                   {humanizeBytes(item.file.size)}
                 </span>

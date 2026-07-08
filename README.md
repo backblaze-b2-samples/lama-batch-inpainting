@@ -1,104 +1,68 @@
-<!-- last_verified: 2026-05-01 -->
-# Vibe Coding Starter Kit
+<!-- last_verified: 2026-07-08 -->
+# LaMa Batch Inpainting
 
-Stop wiring boilerplate and start building. This open-source starter kit gives vibe coders and AI coding agents a production-ready foundation — a full-stack TypeScript + Python template with a pre-built dashboard UI, file upload system, and **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)** cloud storage already integrated. Save thousands of tokens on setup prompts, skip the "build me a dashboard from scratch" loop, and go straight to building your app's unique features.
+Clean up large image collections at scale — remove watermarks, unwanted objects,
+and distracting elements — with **zero cloud-inference cost**. This sample runs
+[**LaMa** (Large-Mask inpainting, `advimman/lama`)](https://github.com/advimman/lama)
+**locally** over `(source image, binary mask)` pairs, writes the inpainted output
+back to **[Backblaze B2](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lama-batch-inpainting)**,
+and gives you a side-by-side review UI to approve results.
 
-**What you get out of the box:**
-- Full-stack dashboard UI (Next.js 16 + React 19 + Tailwind v4 + shadcn/ui)
-- File upload with drag-and-drop, progress tracking, and metadata extraction
-- File browser with preview, download, and delete
-- FastAPI backend with strict layered architecture and structural tests
-- Agent-optimized docs — your AI coding agent can read the repo and start contributing immediately
+It is built for media agencies, real-estate photo editors, and digital-asset
+managers who need repeatable, auditable batch remediation without paying per
+image.
 
-## What it looks like
+## Why B2 — the storage-amplification story
 
-**Dashboard** — stats, upload activity, and recent uploads at a glance:
+Every source image keeps its matched mask **and** gains a full-resolution
+inpainted output, so a remediation project stores roughly **3× its input
+volume**. That is exactly the data-heavy, storage-native workload B2 is built
+for. B2 is the **sole datastore** here — there is no database. Job records,
+source images, masks, outputs, and approved copies all live in one bucket,
+reached only through the **S3-compatible API** with a custom user agent and the
+standardized `B2_*` env vars.
 
-![Dashboard view showing stat cards, upload activity chart, and recent uploads table](docs/images/b2-starterkit-dashboard1.png)
-
-**File browser** — tree view with preview, download, and delete:
-
-![File browser view showing a tree of files with hover actions](docs/images/b2-starterkit-fileview2.png)
-
-## Agent-First Architecture
-
-This repo is optimized for coding agents. Use the template, point your agent at it, and start building.
-
-The structure follows the principle that **repository knowledge is the system of record**. Anything an agent can't access in-context doesn't exist — so everything it needs to reason about the codebase is versioned, co-located, and discoverable from the repo itself.
-
-### How it works
-
-**[AGENTS.md](AGENTS.md) is the single source of truth for all coding agents.** A ~100 line entry point gives agents the repository layout, architectural invariants, commands, conventions, and pointers to deeper docs. Agent-specific files (CLAUDE.md, etc.) are thin pointers back to AGENTS.md.
-
-**Architecture is enforced mechanically, not by convention.** Layering rules, import boundaries, file size limits, and SDK containment are verified by structural tests and lints that run on every change. When rules are enforceable by code, agents follow them reliably.
-
-**The knowledge base is structured for progressive disclosure:**
+Object layout in the bucket:
 
 ```
-AGENTS.md              Single source of truth — layout, invariants, commands, conventions
-ARCHITECTURE.md        System layout, layering rules, data flows
-docs/
-  features/            Feature docs (inputs, outputs, flows, edge cases)
-  app-workflows.md     User journeys
-  dev-workflows.md     Engineering workflows and testing
-  SECURITY.md          Security principles
-  RELIABILITY.md       Reliability expectations
-  exec-plans/          Execution plans and tech debt tracker
+images/source/       uploaded source images
+images/masks/         binary masks (white = remove), paired by base filename
+images/output/<job>/  inpainted PNG + JSON sidecar per source
+images/approved/      approved outputs (server-side copies)
+images/jobs/<id>.json job records (state lives in B2, not a database)
 ```
 
-### Key design decisions
+## Features
 
-| Principle | Implementation |
-|-----------|---------------|
-| Give agents a single source of truth | AGENTS.md ~100 lines — layout, invariants, commands, conventions |
-| Enforce invariants mechanically | Structural tests + ruff + ESLint verify boundaries |
-| DRY documentation | Each fact lives in one place; no redundant files to drift |
-| Strict layered architecture | `types -> config -> repo -> service -> runtime`, enforced by tests |
-| Prefer boring, composable libraries | stdlib logging over frameworks, Pydantic over ad-hoc validation |
-| Contain external SDKs | `boto3` only in `repo/` layer — verified by structural test |
-| Keep files agent-sized | 300-line limit per file, enforced by test |
-| Docs updated with code | Same-PR requirement prevents documentation rot |
-| Structured observability | JSON logging, `/metrics` endpoint, request tracing |
-
-This approach draws from [OpenAI's experience building with Codex](https://openai.com/index/harness-engineering/): agents work best in environments with strict boundaries, predictable structure, and progressive context disclosure.
+- **Batch LaMa inpainting (marquee, local).** Runs the Big-LaMa model on your
+  machine via `simple-lama-inpainting`. `$0` per run, no API key. Device is
+  auto-detected: **CUDA → Apple MPS → CPU**, with a transparent CPU fallback if
+  an accelerator op is unsupported. CPU always works.
+- **Jobs.** The primary entity — an immutable record of one inpainting run over
+  the pairs you selected. Create → run → review → approve → delete.
+- **Review UI.** Per-pair `source | mask | inpainted output`, side by side, via
+  inline presigned URLs. Approve a single output or all of them.
+- **Library.** A read-only, sample-scoped explorer of `images/source/` and
+  `images/masks/` that shows each source's pairing status.
+- **Destination-aware Upload.** Upload a *source image* or a *mask* — a selector
+  routes each to the right prefix.
+- **Storage-amplification dashboard.** Total jobs, images inpainted, approved
+  count, bytes-by-prefix, and the amplification ratio.
+- **Full-bucket explorer** (`/files`), **Settings**, **Design System** — the
+  reusable starter-kit scaffolding, kept intact.
 
 ## Quick Start
 
-You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**.
+You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free
+**[Backblaze B2 account](https://www.backblaze.com/cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lama-batch-inpainting)**.
 
-### Start a new project
-
-**Option 1: GitHub Template (recommended)**
-
-Click the green **"Use this template"** button at the top of this repo, name your project, then:
-
-```bash
-git clone https://github.com/yourorg/my-cool-app.git
-cd my-cool-app
-```
-
-**Option 2: Clone and reinitialize**
-
-```bash
-git clone https://github.com/backblaze-b2-samples/vibe-coding-starter-kit.git my-cool-app
-cd my-cool-app
-rm -rf .git
-git init
-git add .
-git commit -m "Initial commit from vibe-coding-starter-kit"
-```
-
-Either way you get a clean project with no upstream history — ready to push to your own repo and point your agent at it.
-
-### Setup
-
-**1. Install dependencies**
+**1. Install frontend dependencies**
 
 ```bash
 pnpm install
 ```
 
-**2. Set up the backend**
+**2. Set up the backend (installs torch + LaMa)**
 
 ```bash
 cd services/api
@@ -107,24 +71,28 @@ pip install -r requirements.txt
 cd ../..
 ```
 
-**3. Add your B2 credentials**
+> `requirements.txt` pulls `torch`, `torchvision`, `opencv-python-headless`, and
+> `simple-lama-inpainting`. The first inpainting run downloads the ~200 MB
+> `big-lama.pt` checkpoint into the Torch hub cache automatically. To run fully
+> offline, pre-download it and point `LAMA_MODEL` at the local file.
 
-Set up your local `.env`:
+**3. Add your B2 credentials**
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start) and:
+Then, in the
+[Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lama-batch-inpainting):
 
-1. **Create a bucket.** B2 will show two values — paste each into `.env`:
-   - **Bucket Unique Name** → `B2_BUCKET_NAME`
-   - **Endpoint** → `B2_ENDPOINT`
-2. **Create an application key** with `Read and Write` permission. B2 will show two values — paste each into `.env`:
-   - **keyID** → `B2_KEY_ID`
-   - **applicationKey** → `B2_APPLICATION_KEY` *(only shown once — paste it now)*
+1. **Create a bucket** → paste its **Unique Name** into `B2_BUCKET_NAME`, and its
+   **region** (e.g. `us-west-004`) into `B2_REGION`. The S3 endpoint is derived
+   as `https://s3.<region>.backblazeb2.com` — no endpoint URL to paste.
+2. **Create an application key** with read/write/delete → paste **keyID** into
+   `B2_APPLICATION_KEY_ID` and **applicationKey** into `B2_APPLICATION_KEY`.
 
-> Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys).
+`B2_PUBLIC_URL_BASE` is optional — the app renders every asset via short-lived
+presigned URLs, so it works without it.
 
 **4. Run it**
 
@@ -132,43 +100,24 @@ Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 d
 pnpm dev
 ```
 
-That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Upload a file and see it working.
+Frontend at `localhost:3000`, API at `localhost:8000`. Upload a source image and
+a matching mask, create a job, run it, and review the result.
 
-`pnpm dev` runs `pnpm doctor` first — a preflight check that catches the common setup gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`, ports already taken) and tells you exactly how to fix each one. Run it standalone any time with `pnpm doctor`.
+`pnpm dev` runs `pnpm doctor` first — a preflight check for the common setup
+gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`,
+busy ports).
 
-## Building Your App
+## Typical workflow
 
-When you adapt this kit for a new app, keep the shared scaffolding and only swap out what's app-specific:
-
-- **Keep** the UI kit (`apps/web/src/components/ui/` + design tokens in `globals.css` + `/design`).
-- **Keep** the File Explorer (`/files`) and Upload (`/upload`) pages and their sidebar nav entries — they're the reusable B2-backed surface.
-- **Adapt** the Dashboard (`/`) to your use case — replace the default stats, chart, and recent uploads with metrics that reflect what your app actually does.
-- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts` holds the app name and description (`APP_NAME`, `APP_DESCRIPTION`). Changing them there updates the page title, sidebar, and breadcrumb everywhere — no other files to touch.
-
-Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AGENTS.md#2-building-on-this-starter-kit).
-
-## Core Features
-
-- [File Upload](docs/features/file-upload.md) — drag-and-drop upload with real-time progress
-- [File Browser](docs/features/file-browser.md) — list, preview, download, delete files
-- [Dashboard](docs/features/dashboard.md) — stats cards, upload chart, recent uploads
-- [Metadata Extraction](docs/features/metadata-extraction.md) — image dimensions, EXIF, PDF info, checksums
-- [Design System](docs/design-system.md) — tokens, primitives, AI elements, the blaze generating loader, and inline `ErrorState` / `EmptyState` patterns. Live preview at `/design`.
-- Inline error handling — fetch failures surface *what's wrong* (API offline, 401, 5xx) and offer a Retry, instead of silently rendering empty state.
-- Single-source config — one `.env` at the repo root powers both API and web app, validated at startup so misconfig fails fast with a readable message.
-- Centralized data layer — every fetch goes through TanStack Query hooks in `apps/web/src/lib/queries.ts`; cache invalidation is one call after a mutation.
-- Structural tests — verify layering rules, import boundaries, SDK containment, file size limits
-- Structured JSON logging — every request traced with `request_id` and timing
-- `/health` endpoint — B2 connectivity check
-- `/metrics` endpoint — Prometheus-format counters (request count, latency, uploads)
-
-## Tech Stack
-
-- TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts
-- TanStack Query — caching, dedup, retry, stale-while-revalidate for every fetch
-- Python 3.11+, FastAPI, boto3, Pydantic v2, Pillow, PyPDF2
-- Backblaze B2 (S3-compatible object storage)
-- pnpm workspaces (monorepo)
+1. **Upload** a source image (destination: *Source image*), then a mask
+   (destination: *Mask*) — a black-and-white PNG with the **same base filename**
+   so they auto-pair.
+2. **Library** shows the source with a "Mask paired" badge.
+3. **New Job** → select one or more paired sources → creates a `pending` job.
+4. On the job page, click **Run inpainting** → LaMa processes each pair and
+   writes outputs to `images/output/<job>/`.
+5. **Review** the `source | mask | output` triptych and **Approve** the good
+   ones (server-side copy into `images/approved/`).
 
 ## Commands
 
@@ -182,7 +131,21 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 | `pnpm lint:api` | Lint backend (ruff) |
 | `pnpm test:api` | Run backend tests |
 | `pnpm check:structure` | Verify layering rules |
-| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first) |
+| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @lama-batch-inpainting/web exec playwright install chromium` once first) |
+
+## Tech Stack
+
+- TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, TanStack Query
+- Python 3.11+, FastAPI, boto3, Pydantic v2, Pillow
+- **LaMa** via `simple-lama-inpainting` (PyTorch), local CPU/GPU inference
+- Backblaze B2 (S3-compatible object storage) — the sole datastore
+- pnpm workspaces (monorepo)
+
+## Credits
+
+- Inpainting model: [`advimman/lama`](https://github.com/advimman/lama) (Big-LaMa),
+  wrapped by [`simple-lama-inpainting`](https://github.com/enesmsahin/simple-lama-inpainting).
+- Scaffolded from the Backblaze vibe-coding starter kit.
 
 ## Documentation Map
 
@@ -190,24 +153,12 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 |-----|---------|
 | [AGENTS.md](AGENTS.md) | Agent table of contents — start here |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System layout, layering, data flows |
-| [docs/features/](docs/features/) | Feature docs (upload, browser, dashboard, metadata) |
-| [docs/design-system.md](docs/design-system.md) | Design tokens, primitives, AI elements, loader, error/empty states |
+| [docs/features/](docs/features/) | Feature docs (inpainting, jobs, review, library, upload, browser, dashboard) |
 | [docs/app-workflows.md](docs/app-workflows.md) | User journeys |
 | [docs/dev-workflows.md](docs/dev-workflows.md) | Engineering workflows and testing |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security principles |
 | [docs/RELIABILITY.md](docs/RELIABILITY.md) | Reliability expectations |
-| [docs/exec-plans/](docs/exec-plans/) | Execution plans and tech debt tracker |
-
-## Contributing
-
-Start with [AGENTS.md](AGENTS.md). It's the map — everything else is discoverable from there.
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
-## Claude Agent B2 Skill
-
-Manage Backblaze B2 from your terminal using natural language (list/search, audits, stale or large file detection, security checks, safe cleanup).
-
-Repo: [https://github.com/backblaze-b2-samples/claude-skill-b2-cloud-storage](https://github.com/backblaze-b2-samples/claude-skill-b2-cloud-storage)

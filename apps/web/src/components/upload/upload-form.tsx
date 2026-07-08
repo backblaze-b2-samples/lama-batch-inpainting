@@ -5,21 +5,37 @@ import { toast } from "sonner";
 import type { FileRejection } from "react-dropzone";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dropzone } from "./dropzone";
 import { UploadProgress, type UploadItem } from "./upload-progress";
-import { uploadFile } from "@/lib/api-client";
+import { uploadFile, type UploadDestination } from "@/lib/api-client";
 import { humanizeBytes } from "@/lib/utils";
 import { useRefresh } from "@/lib/refresh-context";
 
 const MAX_TOAST_FILE_NAME_LENGTH = 80;
 
-function createUploadItem(file: File): UploadItem {
+const DESTINATIONS: { value: UploadDestination; title: string; hint: string }[] = [
+  {
+    value: "source",
+    title: "Source image",
+    hint: "The photo you want to clean up. Stored under images/source/.",
+  },
+  {
+    value: "mask",
+    title: "Mask (binary PNG)",
+    hint: "A black-and-white PNG — white marks what to remove. Stored under images/masks/.",
+  },
+];
+
+function createUploadItem(file: File, destination: UploadDestination): UploadItem {
   return {
     id: `${file.name}-${file.lastModified}-${Date.now()}-${Math.random()}`,
     file,
     progress: 0,
     retryable: true,
     status: "uploading",
+    destination,
   };
 }
 
@@ -77,6 +93,7 @@ function getUploadSummary(items: UploadItem[]) {
 export function UploadForm() {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [destination, setDestination] = useState<UploadDestination>("source");
   const { triggerRefresh } = useRefresh();
 
   const uploadItems = useCallback(
@@ -103,7 +120,7 @@ export function UploadForm() {
           );
 
           try {
-            await uploadFile(item.file, (percent) => {
+            await uploadFile(item.file, item.destination ?? "source", (percent) => {
               setItems((prev) =>
                 prev.map((i) =>
                   i.id === item.id ? { ...i, progress: percent } : i
@@ -169,11 +186,11 @@ export function UploadForm() {
         return;
       }
 
-      const newItems = files.map(createUploadItem);
+      const newItems = files.map((f) => createUploadItem(f, destination));
       setItems((prev) => [...prev, ...newItems]);
       void uploadItems(newItems);
     },
-    [uploadItems, uploading]
+    [uploadItems, uploading, destination]
   );
 
   const retryUpload = useCallback(
@@ -200,9 +217,46 @@ export function UploadForm() {
   return (
     <Card>
       <CardHeader className="border-b border-border py-4 px-5">
-        <CardTitle className="card-title">Upload Files</CardTitle>
+        <CardTitle className="card-title">Upload images</CardTitle>
       </CardHeader>
       <CardContent className="p-5 space-y-4">
+        {/* Destination — a finite set, so a selector (never free text). */}
+        <div className="space-y-2">
+          <Label>Upload as</Label>
+          <RadioGroup
+            value={destination}
+            onValueChange={(v) => setDestination(v as UploadDestination)}
+            className="grid gap-3 sm:grid-cols-2"
+            disabled={uploading}
+          >
+            {DESTINATIONS.map((d) => (
+              <label
+                key={d.value}
+                className={[
+                  "flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition-colors",
+                  destination === d.value
+                    ? "border-primary bg-[var(--accent-subtle)]"
+                    : "border-border hover:border-foreground/20",
+                ].join(" ")}
+              >
+                <RadioGroupItem value={d.value} className="mt-0.5" />
+                <span className="min-w-0">
+                  <span className="font-medium">{d.title}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {d.hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+          {/* Create-form default hint — guidance, never an autofill button. */}
+          <p className="text-xs text-muted-foreground">
+            Tip: upload the source first, then its mask as a black-and-white PNG
+            with the <span className="font-medium">same base filename</span> so
+            they auto-pair in the Library.
+          </p>
+        </div>
+
         <Dropzone
           onFilesSelected={handleFilesSelected}
           onFilesRejected={handleFilesRejected}

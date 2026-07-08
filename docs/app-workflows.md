@@ -1,38 +1,52 @@
-<!-- last_verified: 2026-03-10 -->
+<!-- last_verified: 2026-07-08 -->
 # App Workflows
 
 User journeys inside the application.
 
-## Upload Files
+## Upload sources and masks
 
 - User navigates to `/upload`
-- Drops or selects files in the dropzone
-- Client validates file size (max 100MB) and type
-- Progress bar shows per-file upload status
-- On success: toast notification, green checkmark
-- On failure: red status icon with error message
-- User can clear completed uploads
+- Picks a destination: **Source image** (`images/source/`) or **Mask**
+  (`images/masks/`) via the selector
+- Drops or selects files; client validates size (max 100MB) and type
+- Progress bar per file; toast on success/failure
+- Tip: upload the source first, then a black-and-white mask PNG with the **same
+  base filename** so they auto-pair
 - See: [File Upload](features/file-upload.md)
 
-## Browse and Manage Files
+## Review the Library
 
-- User navigates to `/files`
-- Page loads file list from API (sorted most recent first)
-- Files displayed in tree view with folders and type-specific icons
-- Top-level folders auto-expand on load
-- Hover a file row to see action buttons (preview / download / delete)
-- **Preview**: opens dialog with image/PDF preview + metadata panel
-- **Download**: fetches presigned URL, browser downloads file
-- **Delete**: removes file from B2, row removed from tree, toast confirms
-- Empty bucket shows "No files found" with upload prompt
+- User navigates to `/library`
+- Sees every source image under `images/source/` with a thumbnail
+- Each source shows "Mask paired" or "No mask"
+- "New job" CTA jumps to job creation
+- See: [Library](features/library.md)
+
+## Create → Run → Review → Approve a job
+
+- **Create**: `/jobs/new` → select one or more paired sources (a selector over
+  the sources actually present) → optional label → creates a `pending` job
+- **Run**: on `/jobs/[id]`, click **Run inpainting** → LaMa runs locally over
+  each `(source, mask)` pair → outputs written to `images/output/<job>/` → job
+  flips to `completed`
+- **Review**: the detail page shows each pair as `source | mask | inpainted
+  output`, side by side, via inline presigned URLs
+- **Approve**: approve a single output or all → server-side copy into
+  `images/approved/`
+- **Delete**: removes the job record and only its own output prefix
+- See: [Jobs](features/jobs.md), [Inpainting](features/inpainting.md),
+  [Review & Approval](features/review-approval.md)
+
+## Browse and manage all files
+
+- User navigates to `/files` (the full-bucket explorer, kept from the starter)
+- Tree view with preview / download / delete for anything in the bucket
 - See: [File Browser](features/file-browser.md)
 
-## View Dashboard
+## View the dashboard
 
-- User navigates to `/` (home)
-- Three parallel API calls load: stats, recent files, upload activity
-- Stats cards show: total files, storage used, uploads today, total downloads
-- Upload chart shows last 7 days of upload activity as bar chart
-- Recent uploads table shows last 10 files with filename, size, type, date
-- Empty state: "No files uploaded yet" messages
+- User navigates to `/`
+- Stat cards: total jobs, images inpainted, approved, storage amplification (×)
+- Bytes-by-prefix chart tells the ~3× storage-amplification story
+- Recent jobs table with status
 - See: [Dashboard](features/dashboard.md)

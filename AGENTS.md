@@ -14,6 +14,21 @@ docs/exec-plans/   Execution plans and tech debt tracker
 infra/railway/     Deployment config
 ```
 
+**This app: LaMa Batch Inpainting.** Runs the local LaMa model over
+`(source image, mask)` pairs and stores everything in Backblaze B2 (no
+database). Key modules added on top of the starter scaffolding:
+
+```
+services/api/app/repo/lama_engine.py    LaMa adapter (torch isolated here, lazy singleton)
+services/api/app/repo/b2_ops.py         get/put/copy/batch-delete/list/inline-presign
+services/api/app/service/jobs.py        job CRUD + library + storage-amplification stats
+services/api/app/service/inpainting.py  the "run" verb — invokes the engine per pair
+services/api/app/runtime/jobs.py        /jobs, /library, /assets/preview, /jobs/stats
+apps/web/src/app/jobs/                  jobs list / new / [id] review UI
+apps/web/src/app/library/               source+mask pairing view
+apps/web/src/components/dashboard/      storage-amplification metrics (rewritten)
+```
+
 ## 2. Building on This Starter Kit
 
 When this repo is used as the foundation for a new app, the following pieces are part of the starter contract — keep them. Adapt only what the new use case actually requires.
@@ -22,7 +37,7 @@ When this repo is used as the foundation for a new app, the following pieces are
 - **UI kit / design system.** `apps/web/src/components/ui/` (shadcn primitives), the design tokens in `apps/web/src/app/globals.css`, and the `/design` reference page. Build new screens with these primitives; never edit the generated `components/ui/` files directly. Restyling happens through tokens in `globals.css`.
 - **File Explorer.** `/files` route, `apps/web/src/app/files/`, and `apps/web/src/components/files/`. The Files sidebar entry in `apps/web/src/components/layout/app-sidebar.tsx` stays.
 - **Upload.** `/upload` route, `apps/web/src/app/upload/`, and `apps/web/src/components/upload/`. The Upload sidebar entry stays.
-- The sidebar nav itself (Dashboard, Upload, Files, Settings, plus the Design System utility link).
+- The sidebar nav (Dashboard, Jobs, Library, Upload, Files, Settings, plus the Design System utility link). Jobs + Library are this app's additions; the rest are the starter contract.
 
 **Adapt to the new use case**
 - **Dashboard.** `/` route and `apps/web/src/components/dashboard/` (stats cards, upload chart, recent uploads table) are illustrative defaults. Replace them with metrics, charts, and tables that reflect what the new app actually does (e.g. transcripts processed, embeddings indexed, classifications run). New aggregations must flow through the same `runtime -> service -> repo` layering and be exposed via TanStack Query hooks in `apps/web/src/lib/queries.ts` — no bare `useEffect + fetch`.
@@ -36,9 +51,11 @@ When this repo is used as the foundation for a new app, the following pieces are
 **Backend layering**: `types` -> `config` -> `repo` -> `service` -> `runtime`
 
 - No backward imports across layers
-- No `boto3` outside `repo/`
+- No `boto3` outside `repo/` — and likewise no heavy ML imports (`torch`,
+  `simple_lama_inpainting`) outside `repo/lama_engine.py`, which loads the model
+  lazily (never at import time)
 - No business logic in route handlers (`runtime/`)
-- All external APIs wrapped in `repo/` adapters
+- All external APIs and models wrapped in `repo/` adapters
 - All request/response data validated at boundary (Pydantic models)
 - No shared mutable state across layers
 

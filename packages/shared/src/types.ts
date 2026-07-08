@@ -57,3 +57,66 @@ export interface UploadStats {
   uploads_today: number;
   total_downloads: number;
 }
+
+// --- LaMa batch inpainting ---
+
+export type JobStatus = "pending" | "completed" | "failed";
+export type PairStatus = "pending" | "completed" | "failed";
+
+export interface JobPair {
+  source_key: string;
+  source_filename: string;
+  mask_key: string | null;
+  output_key: string | null;
+  status: PairStatus;
+  error: string | null;
+}
+
+export interface Job {
+  id: string;
+  label: string | null;
+  status: JobStatus;
+  created_at: string;
+  completed_at: string | null;
+  model: string;
+  device: string | null;
+  pairs: JobPair[];
+}
+
+export interface JobCreateRequest {
+  label?: string | null;
+  source_keys: string[];
+}
+
+export interface ApproveRequest {
+  output_keys?: string[] | null;
+}
+
+export interface LibraryItem {
+  source_key: string;
+  source_filename: string;
+  size_bytes: number;
+  size_human: string;
+  uploaded_at: string;
+  has_mask: boolean;
+  mask_key: string | null;
+}
+
+export interface PrefixBytes {
+  prefix: string;
+  bytes: number;
+  count: number;
+}
+
+export interface InpaintingStats {
+  total_jobs: number;
+  completed_jobs: number;
+  images_inpainted: number;
+  approved_count: number;
+  source_bytes: number;
+  mask_bytes: number;
+  output_bytes: number;
+  approved_bytes: number;
+  amplification_ratio: number;
+  by_prefix: PrefixBytes[];
+}

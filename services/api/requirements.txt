@@ -6,8 +6,19 @@ pydantic>=2.10.0
 pydantic-settings>=2.7.0
 boto3>=1.35.0
 python-magic>=0.4.27
-Pillow>=11.0.0
-PyPDF2>=3.0.0
+Pillow>=11.0.0,<13
+
+# --- LaMa batch inpainting (marquee feature, local CPU/GPU inference) ---
+# Pinned to a verified-working window — unpinned ML deps are a "false green"
+# (they install + tests pass, but the real model path breaks on a fresh clone).
+# Versions below were resolved by actually installing into the build venv.
+# torch is CPU-friendly; device is auto-detected (CUDA -> Apple MPS -> CPU) at
+# runtime in app/repo/lama_engine.py, so no GPU is required.
+torch>=2.2,<2.13
+torchvision>=0.17,<0.28
+numpy>=1.24,<2
+opencv-python-headless>=4.9,<5
+simple-lama-inpainting==0.1.0
 
 # Dev / quality
 ruff>=0.8.0

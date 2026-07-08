@@ -2,10 +2,16 @@ import type {
   DailyUploadCount,
   FileMetadata,
   FileUploadResponse,
+  InpaintingStats,
+  Job,
+  JobCreateRequest,
+  LibraryItem,
   UploadStats,
-} from "@vibe-coding-starter-kit/shared";
+} from "@lama-batch-inpainting/shared";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export type UploadDestination = "source" | "mask";
 
 /** Typed API error with HTTP status code for caller-side branching. */
 export class ApiError extends Error {
@@ -174,12 +180,14 @@ export async function deleteFile(key: string) {
 
 export function uploadFile(
   file: File,
+  destination: UploadDestination = "source",
   onProgress?: (percent: number) => void
 ): Promise<FileUploadResponse> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("destination", destination);
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable && onProgress) {
@@ -208,4 +216,60 @@ export function uploadFile(
     xhr.open("POST", `${API_BASE}/upload`);
     xhr.send(formData);
   });
+}
+
+// --- Library ---
+
+export async function getLibrary() {
+  return apiFetch<LibraryItem[]>("/library");
+}
+
+// --- Inpainting jobs ---
+
+export async function getJobs() {
+  return apiFetch<Job[]>("/jobs");
+}
+
+export async function getJob(id: string) {
+  return apiFetch<Job>(`/jobs/${encodeURIComponent(id)}`);
+}
+
+export async function createJob(body: JobCreateRequest) {
+  return apiFetch<Job>("/jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function runJob(id: string) {
+  return apiFetch<Job>(`/jobs/${encodeURIComponent(id)}/run`, {
+    method: "POST",
+  });
+}
+
+export async function approveJob(id: string, outputKeys?: string[]) {
+  return apiFetch<Job>(`/jobs/${encodeURIComponent(id)}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ output_keys: outputKeys ?? null }),
+  });
+}
+
+export async function deleteJob(id: string) {
+  return apiFetch<{ deleted: boolean; id: string }>(
+    `/jobs/${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function getInpaintingStats() {
+  return apiFetch<InpaintingStats>("/jobs/stats");
+}
+
+/** Inline presigned URL so a source/mask/output asset paints in an `<img>`. */
+export async function getAssetUrl(key: string) {
+  return apiFetch<{ url: string }>(
+    `/assets/preview?${new URLSearchParams({ key })}`
+  );
 }
