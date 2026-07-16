@@ -12,6 +12,32 @@ It is built for media agencies, real-estate photo editors, and digital-asset
 managers who need repeatable, auditable batch remediation without paying per
 image.
 
+## What it looks like
+
+**Dashboard** — storage-amplification metrics (total jobs, images inpainted, approved), a storage-by-prefix breakdown, and recent jobs.
+
+![Dashboard with storage-amplification metrics and recent jobs](docs/images/dashboard.png)
+
+**Upload** — destination-aware upload that routes each file to the source or mask prefix in B2.
+
+![Upload page with source/mask destination selector](docs/images/upload.png)
+
+**Library** — a sample-scoped explorer of every source image with its mask-pairing status.
+
+![Library showing source images with mask-paired badges](docs/images/library.png)
+
+**New job** — pick the paired sources to inpaint and create a pending job.
+
+![New job page selecting paired source images](docs/images/new-job.png)
+
+**Jobs** — every inpainting run as an immutable, reviewable record.
+
+![Jobs list with completed inpainting runs](docs/images/jobs.png)
+
+**Job review** — the per-pair `source | mask | inpainted output` triptych, with per-image and bulk approve.
+
+![Job review triptych showing source, mask, and inpainted output](docs/images/job-review.png)
+
 ## Why B2 — the storage-amplification story
 
 Every source image keeps its matched mask **and** gains a full-resolution
