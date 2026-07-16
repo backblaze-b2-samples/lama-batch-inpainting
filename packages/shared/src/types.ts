@@ -60,7 +60,7 @@ export interface UploadStats {
 
 // --- LaMa batch inpainting ---
 
-export type JobStatus = "pending" | "completed" | "failed";
+export type JobStatus = "pending" | "running" | "completed" | "failed";
 export type PairStatus = "pending" | "completed" | "failed";
 
 export interface JobPair {

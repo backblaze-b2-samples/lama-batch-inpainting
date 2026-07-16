@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -78,8 +79,11 @@ async def get_job_endpoint(job_id: str):
 
 @router.post("/jobs/{job_id}/run", response_model=Job)
 async def run_job_endpoint(job_id: str):
+    # LaMa inference is synchronous and CPU/GPU-bound. Run it in a worker
+    # thread so the single uvicorn event loop stays free to serve other
+    # requests (e.g. GET /files, GET /jobs/{id} progress polls) during a batch.
     try:
-        return run_job(job_id)
+        return await asyncio.to_thread(run_job, job_id)
     except JobNotFound as e:
         raise HTTPException(status_code=404, detail=e.detail) from None
     except JobStateError as e:

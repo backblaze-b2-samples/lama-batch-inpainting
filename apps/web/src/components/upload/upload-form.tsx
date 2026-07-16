@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import type { FileRejection } from "react-dropzone";
+import { Library, Wand2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -212,6 +214,7 @@ export function UploadForm() {
   const hasCompleted = items.some(
     (i) => i.status === "complete" || i.status === "error"
   );
+  const anyUploaded = items.some((i) => i.status === "complete");
   const uploadSummary = getUploadSummary(items);
 
   return (
@@ -276,15 +279,40 @@ export function UploadForm() {
           onRetry={retryUpload}
         />
         {hasCompleted && !uploading && (
-          <div className="flex justify-end">
-            <Button
-              aria-label="Clear completed and failed uploads"
-              variant="outline"
-              size="sm"
-              onClick={clearCompleted}
-            >
-              Clear finished
-            </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {anyUploaded ? (
+              <p className="text-sm text-muted-foreground">
+                Uploaded. Continue to pair sources with masks, or start a job.
+              </p>
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {anyUploaded && (
+                <>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/library">
+                      <Library className="h-3.5 w-3.5" aria-hidden="true" />
+                      View in Library
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link href="/jobs/new">
+                      <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Create a job
+                    </Link>
+                  </Button>
+                </>
+              )}
+              <Button
+                aria-label="Clear completed and failed uploads"
+                variant="ghost"
+                size="sm"
+                onClick={clearCompleted}
+              >
+                Clear finished
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

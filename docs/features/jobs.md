@@ -24,7 +24,7 @@ deleted. State lives in B2 as `images/jobs/<id>.json` (no database).
 | Verb | In UI? | How |
 |------|--------|-----|
 | create | ✅ | `/jobs/new` — select paired sources (selector over the finite set present, never free text); masks auto-pair by base filename; optional label. |
-| run | ✅ | "Run inpainting" on a pending job → LaMa over each pair → outputs + sidecars → status `completed`. Kept distinct from create so a job is assembled then executed. |
+| run | ✅ | "Run inpainting" on a pending job → status flips to `running` (distinct badge + spinner + determinate progress bar) → LaMa over each pair → outputs + sidecars → status `completed`. The detail page polls `GET /jobs/{id}` while `running` (`useJob` `refetchInterval`) so per-pair progress advances live; the run executes in a worker thread so other pages stay responsive. Kept distinct from create so a job is assembled then executed. |
 | read | ✅ | `/jobs` list + `/jobs/[id]` detail (the Review UI). |
 | delete | ✅ | Scoped batch delete of `images/output/<id>/` + the job record. Never touches other prefixes/jobs. |
 | edit | ❌ | **Omitted** — a job is an immutable record of one run (source, mask, model, timestamp). Changing inputs is modeled as creating a new job, so an edit form would misrepresent the entity. Recorded in `omitted_ui_verbs`. |
@@ -35,8 +35,9 @@ Domain action beyond CRUD: **approve** (see [review-approval.md](review-approval
 - create: `{ label?: string, source_keys: string[] }` (each under `images/source/`)
 
 ## Outputs
-- `Job` model: `id`, `label`, `status`, `created_at`, `completed_at`, `model`,
-  `device`, `pairs[]` (each with source/mask/output keys + per-pair status)
+- `Job` model: `id`, `label`, `status` (`pending`/`running`/`completed`/`failed`),
+  `created_at`, `completed_at`, `model`, `device`, `pairs[]` (each with
+  source/mask/output keys + per-pair status)
 
 ## Edge Cases
 - Selecting a source without a matching mask → `400` (create rejects it).
@@ -46,6 +47,8 @@ Domain action beyond CRUD: **approve** (see [review-approval.md](review-approval
 ## Verification
 - Test file: `services/api/tests/test_jobs.py` — pairing, create validation,
   scoped deletion, approve validation (repo stubbed, no network).
+- Test file: `services/api/tests/test_inpainting.py` — `running` progress,
+  double-run guard, non-blocking run endpoint.
 - Quick verify: `pnpm test:api`
 
 ## Related Docs

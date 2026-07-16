@@ -28,6 +28,15 @@ Reliability expectations and practices for this project.
 - `/metrics` endpoint exposes basic Prometheus-format counters
 - Upload success/failure counts tracked
 
+## Concurrency
+
+- LaMa inference is synchronous and CPU/GPU-bound. `POST /jobs/{id}/run` offloads
+  it to a worker thread (`asyncio.to_thread`) so the single uvicorn event loop is
+  never blocked for the duration of a batch — other requests (page loads, other
+  API calls, progress polls) stay responsive while a job runs.
+- Regression-guarded by
+  `tests/test_inpainting.py::test_run_endpoint_does_not_block_event_loop`.
+
 ## Graceful Degradation
 
 - File listing returns empty list (not error) when B2 has no objects

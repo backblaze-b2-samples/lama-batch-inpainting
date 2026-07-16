@@ -14,8 +14,14 @@ Remove watermarks, objects, and distractions from images locally with the LaMa
 - `app/repo/lama_engine.py` — `inpaint(image_bytes, mask_bytes) -> png bytes`,
   `_select_device()`, `current_device()`. Lazy cached singleton; torch is
   imported inside functions only.
-- `app/service/inpainting.py` — `run_job(job_id)`: reads source + mask from B2,
-  calls the engine per pair, writes output PNG + JSON sidecar, flips job status.
+- `app/service/inpainting.py` — `run_job(job_id)`: marks the job `running`, then
+  per pair reads source + mask from B2, calls the engine, writes output PNG +
+  JSON sidecar, and **persists the job record after every pair** so a client
+  polling `GET /jobs/{id}` sees live progress; flips to `completed`/`failed` at
+  the end. Synchronous and CPU/GPU-bound.
+- `app/runtime/jobs.py` — `run_job_endpoint` offloads `run_job` to a worker
+  thread via `asyncio.to_thread` so the blocking inference never stalls the
+  event loop; other requests stay responsive during a batch.
 - `app/repo/b2_ops.py` — `get_object_bytes`, `put_object`.
 
 ## Canonical Files
@@ -29,7 +35,8 @@ Remove watermarks, objects, and distractions from images locally with the LaMa
 ## Outputs
 - `images/output/<job-id>/<name>.png` — inpainted image
 - `images/output/<job-id>/<name>.json` — sidecar (model, device, byte sizes)
-- Job record flipped to `completed` (or `failed` if every pair failed)
+- Job status progresses `pending` → `running` (persisted incrementally, one save
+  per finished pair) → `completed` (or `failed` if every pair failed)
 
 ## Device rule (hard)
 Auto-detect **CUDA → Apple MPS → CPU**. CPU is the default and always works — no
@@ -53,11 +60,15 @@ inference), the engine transparently rebuilds on CPU and retries once.
 - A single pair's inference error → recorded on the pair, job continues.
 - Accelerator op unsupported → transparent CPU fallback (see device rule).
 - Re-running a completed (immutable) job → `409` — create a new job instead.
+- Running a job that is already `running` → `409` (guards against double-run).
 
 ## Verification
 - Test file: `services/api/tests/test_lama_engine.py` — no-network signature
   guard: asserts the byte-in/byte-out contract and that torch is not imported at
   module scope, using a fake engine (no model download).
+- Test file: `services/api/tests/test_inpainting.py` — incremental `running`
+  progress persistence, the already-running/already-completed guards, and a
+  concurrency test proving `POST /jobs/{id}/run` does not block the event loop.
 - Real end-to-end inference is exercised by the verification pipeline step.
 - Quick verify: `pnpm test:api`
 - Pass criteria: engine guard tests green; no import-time model load.

@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Check, Trash2, Cpu } from "lucide-react";
+import { ArrowLeft, Play, Check, Trash2, Cpu, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import {
@@ -77,6 +78,13 @@ export function JobDetail({ id }: { id: string }) {
   const completedPairs = job.pairs.filter(
     (p) => p.status === "completed" && p.output_key
   );
+
+  const isRunning = job.status === "running";
+  const totalPairs = job.pairs.length;
+  const donePairs = job.pairs.filter((p) => p.status !== "pending").length;
+  const progressPct = totalPairs
+    ? Math.round((donePairs / totalPairs) * 100)
+    : 0;
 
   const runInpainting = () =>
     runJob.mutate(job.id, {
@@ -167,11 +175,25 @@ export function JobDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {runJob.isPending && (
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          Running LaMa locally over {job.pairs.length} pair
-          {job.pairs.length === 1 ? "" : "s"} — this can take a moment per image.
-        </p>
+      {isRunning && (
+        <div
+          className="space-y-3 rounded-lg border border-border bg-card p-4"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Loader2
+              className="h-4 w-4 animate-spin text-primary"
+              aria-hidden="true"
+            />
+            Inpainting in progress — {donePairs}/{totalPairs} pair
+            {totalPairs === 1 ? "" : "s"} done ({progressPct}%)
+          </div>
+          <Progress value={progressPct} aria-label="Inpainting progress" />
+          <p className="text-xs text-muted-foreground">
+            Running LaMa locally over {totalPairs} pair
+            {totalPairs === 1 ? "" : "s"} — this can take a moment per image.
+          </p>
+        </div>
       )}
 
       <div className="space-y-4">

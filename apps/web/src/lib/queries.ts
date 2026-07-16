@@ -111,6 +111,11 @@ export function useJob(id: string | undefined) {
     queryKey: qk.job(id ?? ""),
     queryFn: () => getJob(id as string),
     enabled: !!id,
+    // While a run is in progress the backend persists per-pair progress to B2,
+    // so poll to surface it live. Polling stops the moment the job leaves the
+    // "running" state (completed/failed) — no wasted requests when idle.
+    refetchInterval: (query) =>
+      query.state.data?.status === "running" ? 1500 : false,
   });
 }
 
@@ -146,6 +151,22 @@ export function useRunJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runJob(id),
+    // Optimistically flip the cached job to "running" so the UI shows a distinct
+    // in-progress state and useJob starts polling immediately — before the first
+    // server tick lands. Rolled back if the run request itself fails to start.
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: qk.job(id) });
+      const previous = qc.getQueryData<Job>(qk.job(id));
+      if (previous) {
+        qc.setQueryData<Job>(qk.job(id), { ...previous, status: "running" });
+      }
+      return { previous };
+    },
+    onError: (_err, id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(qk.job(id), context.previous);
+      }
+    },
     onSuccess: (job) => {
       qc.invalidateQueries({ queryKey: qk.job(job.id) });
       qc.invalidateQueries({ queryKey: qk.jobs() });

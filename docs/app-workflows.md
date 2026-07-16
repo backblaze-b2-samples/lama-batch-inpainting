@@ -10,6 +10,9 @@ User journeys inside the application.
   (`images/masks/`) via the selector
 - Drops or selects files; client validates size (max 100MB) and type
 - Progress bar per file; toast on success/failure
+- After a successful upload, forward actions appear in place — **View in
+  Library** (`/library`) and **Create a job** (`/jobs/new`) — so the
+  upload → pair → job hand-off is discoverable without hunting the sidebar
 - Tip: upload the source first, then a black-and-white mask PNG with the **same
   base filename** so they auto-pair
 - See: [File Upload](features/file-upload.md)
@@ -26,9 +29,12 @@ User journeys inside the application.
 
 - **Create**: `/jobs/new` → select one or more paired sources (a selector over
   the sources actually present) → optional label → creates a `pending` job
-- **Run**: on `/jobs/[id]`, click **Run inpainting** → LaMa runs locally over
-  each `(source, mask)` pair → outputs written to `images/output/<job>/` → job
-  flips to `completed`
+- **Run**: on `/jobs/[id]`, click **Run inpainting** → the status badge flips to
+  **Running** with a spinner and a determinate progress bar that advances per
+  pair (`N/M pairs done`, polled live) → LaMa runs locally over each
+  `(source, mask)` pair → outputs written to `images/output/<job>/` → job flips
+  to `completed`. The run executes off the event loop, so other pages stay
+  responsive during a batch.
 - **Review**: the detail page shows each pair as `source | mask | inpainted
   output`, side by side, via inline presigned URLs
 - **Approve**: approve a single output or all → server-side copy into
