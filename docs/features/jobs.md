@@ -9,16 +9,17 @@ deleted. State lives in B2 as `images/jobs/<id>.json` (no database).
 ## Used By
 - UI: `/jobs` (list), `/jobs/new` (create), `/jobs/[id]` (detail/review)
 - API: `GET /jobs`, `POST /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/run`,
-  `POST /jobs/{id}/approve`, `DELETE /jobs/{id}`, `GET /jobs/stats`
+  `POST /jobs/{id}/approve`, `GET /jobs/{id}/approvals`, `DELETE /jobs/{id}`,
+  `GET /jobs/stats`
 
 ## Core Functions
 - `app/service/jobs.py` — `create_job`, `get_job`, `list_jobs`, `delete_job`,
-  `approve`, `get_inpainting_stats`, `save_job`
+  `approve`, `get_job_approvals`, `get_inpainting_stats`, `save_job`
 - `app/service/inpainting.py` — `run_job`
 - `app/runtime/jobs.py` — route handlers
 - `apps/web/src/components/jobs/` — list, create form, detail/review
-- `apps/web/src/lib/queries.ts` — `useJobs`, `useJob`, `useCreateJob`,
-  `useRunJob`, `useApproveJob`, `useDeleteJob`
+- `apps/web/src/lib/queries.ts` — `useJobs`, `useJob`, `useJobApprovals`,
+  `useCreateJob`, `useRunJob`, `useApproveJob`, `useDeleteJob`
 
 ## CRUD + run verbs
 | Verb | In UI? | How |

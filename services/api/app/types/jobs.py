@@ -87,6 +87,20 @@ class InpaintingStats(BaseModel):
     mask_bytes: int
     output_bytes: int
     approved_bytes: int
-    # (output + mask) bytes relative to source bytes — the amplification factor.
+    # Object-count amplification: stored artifact objects per source
+    # (source + mask + output). This is the metric behind the "~3x" story —
+    # every source retains its mask AND gains an inpainted output = 3 objects.
+    # It can structurally reach 3x; the byte ratio below never can.
+    object_amplification: float
+    # (output + mask) bytes relative to source bytes — the byte amplification
+    # factor. Kept as a secondary detail (masks are ~KB, so this stays near 1x).
     amplification_ratio: float
     by_prefix: list[PrefixBytes]
+
+
+class JobApprovals(BaseModel):
+    """Which of a job's completed outputs have an approved copy in
+    `images/approved/` (approvals are keyed by output filename)."""
+
+    job_id: str
+    approved_output_keys: list[str]

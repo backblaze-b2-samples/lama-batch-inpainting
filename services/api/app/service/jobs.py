@@ -21,6 +21,7 @@ from app.types import (
     ApproveRequest,
     InpaintingStats,
     Job,
+    JobApprovals,
     JobCreateRequest,
     JobPair,
     JobStatus,
@@ -231,8 +232,8 @@ def get_inpainting_stats() -> InpaintingStats:
             count += 1
         return total, count
 
-    source_bytes, _ = _sum(SOURCE_PREFIX)
-    mask_bytes, _ = _sum(MASK_PREFIX)
+    source_bytes, source_count = _sum(SOURCE_PREFIX)
+    mask_bytes, mask_count = _sum(MASK_PREFIX)
     output_bytes, images_inpainted = _sum(OUTPUT_PREFIX, images_only=True)
     approved_bytes, approved_count = _sum(APPROVED_PREFIX)
 
@@ -249,7 +250,16 @@ def get_inpainting_stats() -> InpaintingStats:
             and "/" in obj["key"][len(OUTPUT_PREFIX) :]
         }
     )
-    ratio = (output_bytes + mask_bytes) / source_bytes if source_bytes else 0.0
+    # Byte ratio is a weak proxy — masks are ~KB and the retained source bytes
+    # are excluded, so it stays near 1x and can never show the ~3x story.
+    byte_ratio = (output_bytes + mask_bytes) / source_bytes if source_bytes else 0.0
+    # Object-count amplification is the honest ~3x metric: every source retains
+    # its mask AND gains an inpainted output = 3 stored objects per source.
+    object_amplification = (
+        (source_count + mask_count + images_inpainted) / source_count
+        if source_count
+        else 0.0
+    )
 
     return InpaintingStats(
         total_jobs=total_jobs,
@@ -260,11 +270,28 @@ def get_inpainting_stats() -> InpaintingStats:
         mask_bytes=mask_bytes,
         output_bytes=output_bytes,
         approved_bytes=approved_bytes,
-        amplification_ratio=round(ratio, 2),
+        object_amplification=round(object_amplification, 2),
+        amplification_ratio=round(byte_ratio, 2),
         by_prefix=[
-            PrefixBytes(prefix="source", bytes=source_bytes, count=_sum(SOURCE_PREFIX)[1]),
-            PrefixBytes(prefix="masks", bytes=mask_bytes, count=_sum(MASK_PREFIX)[1]),
+            PrefixBytes(prefix="source", bytes=source_bytes, count=source_count),
+            PrefixBytes(prefix="masks", bytes=mask_bytes, count=mask_count),
             PrefixBytes(prefix="output", bytes=output_bytes, count=images_inpainted),
             PrefixBytes(prefix="approved", bytes=approved_bytes, count=approved_count),
         ],
     )
+
+
+def get_job_approvals(job_id: str) -> JobApprovals:
+    """Return the output_keys of this job whose approved copy exists under
+    `images/approved/`. Approvals are keyed by output filename (see `approve`),
+    so a returning user can see which outputs are already approved."""
+    job = get_job(job_id)  # 404s if the job is missing
+    approved_names = {
+        _filename(obj["key"]) for obj in list_all(APPROVED_PREFIX) if _filename(obj["key"])
+    }
+    approved_output_keys = [
+        p.output_key
+        for p in job.pairs
+        if p.output_key and _filename(p.output_key) in approved_names
+    ]
+    return JobApprovals(job_id=job_id, approved_output_keys=approved_output_keys)

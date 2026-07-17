@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Play, Check, Trash2, Cpu, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,7 +25,13 @@ import {
 import { AssetImage } from "@/components/inpainting/asset-image";
 import { JobStatusBadge } from "./job-status-badge";
 import { ApiError } from "@/lib/api-client";
-import { useApproveJob, useDeleteJob, useJob, useRunJob } from "@/lib/queries";
+import {
+  useApproveJob,
+  useDeleteJob,
+  useJob,
+  useJobApprovals,
+  useRunJob,
+} from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 import type { JobPair } from "@lama-batch-inpainting/shared";
 
@@ -50,6 +57,7 @@ function PairColumn({
 export function JobDetail({ id }: { id: string }) {
   const router = useRouter();
   const { data: job, isLoading, error, refetch } = useJob(id);
+  const { data: approvals } = useJobApprovals(id);
   const runJob = useRunJob();
   const approveJob = useApproveJob(id);
   const deleteJob = useDeleteJob();
@@ -78,6 +86,11 @@ export function JobDetail({ id }: { id: string }) {
   const completedPairs = job.pairs.filter(
     (p) => p.status === "completed" && p.output_key
   );
+
+  const approvedKeys = new Set(approvals?.approved_output_keys ?? []);
+  const approvedCount = completedPairs.filter(
+    (p) => p.output_key && approvedKeys.has(p.output_key)
+  ).length;
 
   const isRunning = job.status === "running";
   const totalPairs = job.pairs.length;
@@ -137,6 +150,15 @@ export function JobDetail({ id }: { id: string }) {
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <JobStatusBadge status={job.status} />
             <span>{job.pairs.length} image{job.pairs.length === 1 ? "" : "s"}</span>
+            {completedPairs.length > 0 && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex items-center gap-1 text-[var(--success)]">
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  {approvedCount}/{completedPairs.length} approved
+                </span>
+              </>
+            )}
             <span aria-hidden>·</span>
             <span>Created {formatDate(job.created_at)}</span>
             {job.device && (
@@ -197,7 +219,9 @@ export function JobDetail({ id }: { id: string }) {
       )}
 
       <div className="space-y-4">
-        {job.pairs.map((pair) => (
+        {job.pairs.map((pair) => {
+          const isApproved = !!pair.output_key && approvedKeys.has(pair.output_key);
+          return (
           <Card key={pair.source_key}>
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3 space-y-0">
               <CardTitle
@@ -208,16 +232,32 @@ export function JobDetail({ id }: { id: string }) {
               </CardTitle>
               <div className="flex items-center gap-2">
                 <JobStatusBadge status={pair.status} />
-                {pair.status === "completed" && pair.output_key && (
-                  <Button
-                    size="sm"
+                {isApproved && (
+                  <Badge
                     variant="outline"
-                    onClick={() => approveOne(pair)}
-                    disabled={approveJob.isPending}
+                    className="gap-1 border-[var(--success)]/40 text-[var(--success)]"
                   >
-                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                    Approve
-                  </Button>
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                    Approved
+                  </Badge>
+                )}
+                {pair.status === "completed" && pair.output_key && (
+                  isApproved ? (
+                    <Button size="sm" variant="ghost" disabled>
+                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      Approved
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => approveOne(pair)}
+                      disabled={approveJob.isPending}
+                    >
+                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      Approve
+                    </Button>
+                  )
                 )}
               </div>
             </CardHeader>
@@ -244,7 +284,8 @@ export function JobDetail({ id }: { id: string }) {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>

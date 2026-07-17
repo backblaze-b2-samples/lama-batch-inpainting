@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { FileRejection } from "react-dropzone";
-import { Library, Wand2 } from "lucide-react";
+import { ArrowRight, Library, Wand2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -211,6 +211,15 @@ export function UploadForm() {
     setItems((prev) => prev.filter((i) => i.status === "uploading"));
   }, []);
 
+  // Second pass of the batch flow: after sources land, switch the destination to
+  // "mask" in one click and reset the finished queue so masks can be dropped
+  // straight in. Pairing is by base filename, so we can't auto-split a mixed
+  // drop — a guided two-pass is the safe design (see docs/features/file-upload.md).
+  const startMaskPass = useCallback(() => {
+    setDestination("mask");
+    clearCompleted();
+  }, [clearCompleted]);
+
   const hasCompleted = items.some(
     (i) => i.status === "complete" || i.status === "error"
   );
@@ -278,6 +287,19 @@ export function UploadForm() {
           items={items}
           onRetry={retryUpload}
         />
+        {anyUploaded && !uploading && destination === "source" && (
+          <div className="flex flex-col gap-3 rounded-md border border-primary/30 bg-[var(--accent-subtle)] p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm">
+              <span className="font-medium">Next: upload the masks.</span> Switch
+              to the Mask destination and drop the matching black-and-white PNGs
+              (same base filename) so they auto-pair.
+            </p>
+            <Button size="sm" className="shrink-0" onClick={startMaskPass}>
+              Upload masks next
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          </div>
+        )}
         {hasCompleted && !uploading && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {anyUploaded ? (

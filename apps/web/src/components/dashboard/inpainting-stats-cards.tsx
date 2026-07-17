@@ -28,8 +28,10 @@ export function InpaintingStatsCards() {
     },
     { title: "Approved", value: stats?.approved_count ?? 0, icon: CheckCircle2 },
     {
+      // Object-count amplification — the honest ~3x metric (every source keeps
+      // its mask AND gains an output). The byte ratio is shown in the chart.
       title: "Storage Amplification",
-      value: stats ? `${stats.amplification_ratio.toFixed(2)}×` : "—",
+      value: stats ? `${stats.object_amplification.toFixed(1)}×` : "—",
       icon: Layers,
     },
   ];

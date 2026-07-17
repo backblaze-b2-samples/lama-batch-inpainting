@@ -36,8 +36,18 @@ right prefix.
 - Side effects: file stored under `images/source/{name}` or `images/masks/{name}`
   depending on the destination (replaces the starter's single `uploads/` prefix)
 
+## Two-pass batch flow (source → mask)
+A source and its mask share the same base filename (the pairing convention), so
+a mixed drop can't be reliably auto-split into source-vs-mask by filename alone.
+The upload page therefore uses a guided **two-pass** flow rather than a fragile
+auto-router: upload all sources (multi-file drop supported), then all masks.
+After the source pass completes, an inline callout offers a one-click **"Upload
+masks next"** button (`startMaskPass`) that switches the destination to `mask`
+and clears the finished queue, making the second pass obvious. Once masks land,
+the existing "View in Library" / "Create a job" actions lead onward.
+
 ## Flow
-- User drops or selects files in dropzone
+- User drops or selects files in dropzone (multiple files per drop supported)
 - Client validates file size (max 100MB) and type — rejected files remain in the queue with a clear reason and show toast feedback
 - XHR sends multipart POST to `/upload` with progress events
 - API checks `Content-Length` header early to reject oversized requests before reading body

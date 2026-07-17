@@ -12,6 +12,7 @@ import {
   getFileStats,
   getInpaintingStats,
   getJob,
+  getJobApprovals,
   getJobs,
   getLibrary,
   getPreviewUrl,
@@ -22,6 +23,7 @@ import type {
   FileMetadata,
   InpaintingStats,
   Job,
+  JobApprovals,
   JobCreateRequest,
   LibraryItem,
 } from "@lama-batch-inpainting/shared";
@@ -41,6 +43,7 @@ export const qk = {
   library: () => [...qk.all, "library"] as const,
   jobs: () => [...qk.all, "jobs"] as const,
   job: (id: string) => [...qk.all, "jobs", id] as const,
+  jobApprovals: (id: string) => [...qk.all, "jobs", id, "approvals"] as const,
   inpaintingStats: () => [...qk.all, "inpainting-stats"] as const,
   asset: (key: string) => [...qk.all, "asset", key] as const,
 };
@@ -119,6 +122,17 @@ export function useJob(id: string | undefined) {
   });
 }
 
+// Persistent per-output approval state for the job review page. Fetched once
+// (no polling) and refetched when useApproveJob invalidates it, so the
+// "Approved" badge survives reload/return without a transient toast.
+export function useJobApprovals(id: string | undefined) {
+  return useQuery<JobApprovals, ApiError>({
+    queryKey: qk.jobApprovals(id ?? ""),
+    queryFn: () => getJobApprovals(id as string),
+    enabled: !!id,
+  });
+}
+
 export function useInpaintingStats() {
   return useQuery<InpaintingStats, ApiError>({
     queryKey: qk.inpaintingStats(),
@@ -181,6 +195,7 @@ export function useApproveJob(id: string) {
     mutationFn: (outputKeys?: string[]) => approveJob(id, outputKeys),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.job(id) });
+      qc.invalidateQueries({ queryKey: qk.jobApprovals(id) });
       qc.invalidateQueries({ queryKey: qk.inpaintingStats() });
     },
   });

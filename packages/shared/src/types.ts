@@ -117,6 +117,14 @@ export interface InpaintingStats {
   mask_bytes: number;
   output_bytes: number;
   approved_bytes: number;
+  // Object-count amplification (source + mask + output per source) — the ~3x story.
+  object_amplification: number;
+  // Byte ratio ((output + masks) / source bytes) — secondary detail, stays near 1x.
   amplification_ratio: number;
   by_prefix: PrefixBytes[];
+}
+
+export interface JobApprovals {
+  job_id: string;
+  approved_output_keys: string[];
 }

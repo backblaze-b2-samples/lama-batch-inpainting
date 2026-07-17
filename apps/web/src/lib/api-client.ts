@@ -4,6 +4,7 @@ import type {
   FileUploadResponse,
   InpaintingStats,
   Job,
+  JobApprovals,
   JobCreateRequest,
   LibraryItem,
   UploadStats,
@@ -254,6 +255,13 @@ export async function approveJob(id: string, outputKeys?: string[]) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ output_keys: outputKeys ?? null }),
   });
+}
+
+/** Which of this job's outputs already have an approved copy (persistent state). */
+export async function getJobApprovals(id: string) {
+  return apiFetch<JobApprovals>(
+    `/jobs/${encodeURIComponent(id)}/approvals`
+  );
 }
 
 export async function deleteJob(id: string) {

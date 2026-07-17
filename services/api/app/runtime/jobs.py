@@ -14,6 +14,7 @@ from app.service.jobs import (
     delete_job,
     get_inpainting_stats,
     get_job,
+    get_job_approvals,
     list_jobs,
     list_library,
 )
@@ -21,6 +22,7 @@ from app.types import (
     ApproveRequest,
     InpaintingStats,
     Job,
+    JobApprovals,
     JobCreateRequest,
     LibraryItem,
 )
@@ -98,6 +100,15 @@ async def approve_job_endpoint(job_id: str, req: ApproveRequest):
         raise HTTPException(status_code=404, detail=e.detail) from None
     except JobValidationError as e:
         raise HTTPException(status_code=400, detail=e.detail) from None
+
+
+@router.get("/jobs/{job_id}/approvals", response_model=JobApprovals)
+async def job_approvals_endpoint(job_id: str):
+    """Which of this job's outputs are already approved (persistent state)."""
+    try:
+        return get_job_approvals(job_id)
+    except JobNotFound as e:
+        raise HTTPException(status_code=404, detail=e.detail) from None
 
 
 @router.delete("/jobs/{job_id}")

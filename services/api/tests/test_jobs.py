@@ -102,6 +102,61 @@ def test_delete_job_only_touches_its_own_prefix(monkeypatch):
     assert all(job_id in k for k in flat)
 
 
+def test_stats_object_amplification_uses_object_count(monkeypatch):
+    # 2 sources, each retaining a mask and gaining an output = ~2x objects.
+    # The byte ratio stays near-flat, but the count-based metric tells the story.
+    objects = [
+        _obj("images/source/a.jpg", size=1_000_000),
+        _obj("images/source/b.jpg", size=1_000_000),
+        _obj("images/masks/a.png", size=2_000),
+        _obj("images/masks/b.png", size=2_000),
+        _obj("images/output/job1/a.png", size=900_000),
+        _obj("images/output/job1/b.png", size=900_000),
+        _obj("images/jobs/job1.json", size=500),
+    ]
+    monkeypatch.setattr(jobs_service, "list_all", _fake_list_all({"": objects}))
+
+    stats = jobs_service.get_inpainting_stats()
+
+    # (source 2 + masks 2 + outputs 2) / sources 2 = 3.0 — the honest ~3x story.
+    assert stats.object_amplification == 3.0
+    # Byte ratio ((output + masks) / source) stays near 1x — can never reach 3x.
+    assert stats.amplification_ratio < 1.5
+
+
+def test_get_job_approvals_reflects_approved_copies(monkeypatch):
+    job = jobs_service.Job(
+        id="job1",
+        created_at=datetime.now(UTC),
+        pairs=[
+            jobs_service.JobPair(
+                source_key="images/source/a.jpg",
+                source_filename="a.jpg",
+                output_key="images/output/job1/a.png",
+                status=jobs_service.PairStatus.COMPLETED,
+            ),
+            jobs_service.JobPair(
+                source_key="images/source/b.jpg",
+                source_filename="b.jpg",
+                output_key="images/output/job1/b.png",
+                status=jobs_service.PairStatus.COMPLETED,
+            ),
+        ],
+    )
+    monkeypatch.setattr(jobs_service, "get_job", lambda jid: job)
+    monkeypatch.setattr(
+        jobs_service,
+        "list_all",
+        _fake_list_all({"images/approved/": [_obj("images/approved/a.png")]}),
+    )
+
+    approvals = jobs_service.get_job_approvals("job1")
+
+    # Only a.png has an approved copy; b.png does not.
+    assert approvals.job_id == "job1"
+    assert approvals.approved_output_keys == ["images/output/job1/a.png"]
+
+
 def test_approve_rejects_non_completed_output(monkeypatch):
     job_id = "job1"
     monkeypatch.setattr(

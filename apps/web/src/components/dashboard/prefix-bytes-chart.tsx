@@ -82,13 +82,23 @@ export function PrefixBytesChart() {
               </div>
             ))}
             {stats && (
-              <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-                Amplification:{" "}
-                <span className="font-semibold text-foreground">
-                  {stats.amplification_ratio.toFixed(2)}×
-                </span>{" "}
-                — (output + masks) relative to source bytes.
-              </p>
+              <div className="space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+                <p>
+                  Object amplification:{" "}
+                  <span className="font-semibold text-foreground">
+                    {stats.object_amplification.toFixed(1)}×
+                  </span>{" "}
+                  — every source retains its mask and gains an inpainted output
+                  (≈3 stored objects per source).
+                </p>
+                <p>
+                  Byte amplification:{" "}
+                  <span className="font-semibold text-foreground">
+                    {stats.amplification_ratio.toFixed(2)}×
+                  </span>{" "}
+                  — (output + masks) relative to source bytes.
+                </p>
+              </div>
             )}
           </div>
         )}
